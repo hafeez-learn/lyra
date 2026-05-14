@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { signIn } from '../lib/supabase'
+import { signIn } from '../lib/firebase'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -15,7 +15,7 @@ export default function Login() {
     setLoading(true)
 
     try {
-      const { data, error } = await signIn(email, password)
+      const { user, error } = await signIn(email, password)
       if (error) throw error
       navigate('/dashboard')
     } catch (err) {

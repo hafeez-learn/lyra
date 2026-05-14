@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
-import { signOut } from '../lib/supabase'
-import { formatDistanceToNow } from '../utils/dateUtils'
+import { signOut, getMoodEntries } from '../lib/firebase'
 
 export default function Profile() {
   const { user } = useAuth()
@@ -17,20 +15,12 @@ export default function Profile() {
 
     const fetchStats = async () => {
       try {
-        const { count } = await supabase
-          .from('check_ins')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-
-        setTotalCheckIns(count || 0)
-
-        const { data: moods } = await supabase
-          .from('mood_entries')
-          .select('mood_score')
-          .eq('user_id', user.id)
-
-        if (moods && moods.length > 0) {
-          const avg = moods.reduce((sum, m) => sum + m.mood_score, 0) / moods.length
+        const moods = await getMoodEntries(user.uid, 100)
+        
+        setTotalCheckIns(moods.length)
+        
+        if (moods.length > 0) {
+          const avg = moods.reduce((sum, m) => sum + m.moodScore, 0) / moods.length
           setAvgMood(avg.toFixed(1))
         }
       } catch (err) {
@@ -50,6 +40,11 @@ export default function Profile() {
 
   if (!user) return null
 
+  // Firebase stores creation time in metadata
+  const createdAt = user.metadata?.createdAt 
+    ? new Date(user.metadata.createdAt).toLocaleDateString() 
+    : new Date().toLocaleDateString()
+
   return (
     <div className="min-h-screen bg-bg pb-20">
       {/* Header */}
@@ -67,7 +62,7 @@ export default function Profile() {
             {user.email?.charAt(0).toUpperCase() || 'U'}
           </div>
           <h2 className="text-xl font-bold">{user.email}</h2>
-          <p className="text-text-secondary text-sm">Member since {new Date(user.created_at).toLocaleDateString()}</p>
+          <p className="text-text-secondary text-sm">Member since {createdAt}</p>
         </div>
 
         {/* Stats */}

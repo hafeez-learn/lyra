@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { saveMoodEntry, saveCheckIn } from '../lib/firebase'
 
 const MOODS = [
   { score: 1, emoji: '😔', label: 'Bad' },
@@ -26,21 +26,8 @@ export default function MoodCheckIn() {
     setLoading(true)
 
     try {
-      const { error } = await supabase.from('mood_entries').insert([
-        {
-          user_id: user.id,
-          mood_score: selectedMood,
-          note: note.trim() || null,
-        },
-      ])
-
-      if (error) throw error
-
-      // Create check-in record
-      await supabase.from('check_ins').insert([
-        { user_id: user.id, completed_at: new Date().toISOString() }
-      ])
-
+      await saveMoodEntry(user.uid, selectedMood, note)
+      await saveCheckIn(user.uid)
       setSuccess(true)
       
       setTimeout(() => {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { getChatMessages, saveChatMessage } from '../lib/firebase'
 
 const SUGGESTED_PROMPTS = [
   "How are you feeling today?",
@@ -24,12 +24,7 @@ export default function Chat() {
 
     const fetchMessages = async () => {
       try {
-        const { data } = await supabase
-          .from('chat_messages')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: true })
-        
+        const data = await getChatMessages(user.uid)
         if (data) {
           setMessages(data)
         }
@@ -51,10 +46,10 @@ export default function Chat() {
     if (!text.trim() || !user) return
 
     const userMessage = {
-      user_id: user.id,
+      userId: user.uid,
       role: 'user',
       content: text.trim(),
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     }
 
     // Add user message to UI immediately
@@ -63,52 +58,56 @@ export default function Chat() {
     setLoading(true)
 
     try {
-      // Save user message to DB
-      await supabase.from('chat_messages').insert([userMessage])
+      // Save user message to Firestore
+      await saveChatMessage(user.uid, 'user', text.trim())
 
       // Get conversation history for context
-      const { data: history } = await supabase
-        .from('chat_messages')
-        .select('role, content')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true })
-        .limit(20)
+      const history = messages.slice(-19).map(m => ({ role: m.role, content: m.content }))
+      history.push({ role: 'user', content: text.trim() })
 
-      // Call Edge Function
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
+      // Call MiniMax API directly (for demo - in production use a backend proxy)
+      const response = await fetch('https://api.minimax.io/anthropic/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${window.__MINIMAX_API_KEY__ || ''}`,
         },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({
+          model: 'MiniMax-Text-01',
+          max_tokens: 1024,
+          messages: [
+            { role: 'system', content: 'You are Lyra, a supportive and caring AI wellness companion. You provide emotional support, gentle guidance, and positive encouragement. Be warm, empathetic, and concise in your responses.' },
+            ...history.map(m => ({ role: m.role, content: m.content }))
+          ]
+        }),
       })
 
-      if (!response.ok) {
-        throw new Error('Failed to get response')
+      let aiText = "I'm sorry, I'm having trouble connecting right now. Please try again in a moment. 💙"
+      
+      if (response.ok) {
+        const data = await response.json()
+        aiText = data.choices?.[0]?.message?.content || aiText
       }
-
-      const { response: aiText } = await response.json()
 
       const aiMessage = {
-        user_id: user.id,
+        userId: user.uid,
         role: 'assistant',
         content: aiText,
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
       }
 
-      // Save AI message to DB
-      await supabase.from('chat_messages').insert([aiMessage])
+      // Save AI message to Firestore
+      await saveChatMessage(user.uid, 'assistant', aiText)
 
       // Add AI message to UI
       setMessages(prev => [...prev, aiMessage])
     } catch (err) {
       console.error('Error sending message:', err)
       const errorMessage = {
-        user_id: user.id,
+        userId: user.uid,
         role: 'assistant',
         content: "I'm sorry, I'm having trouble connecting right now. Please try again in a moment. 💙",
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
       }
       setMessages(prev => [...prev, errorMessage])
     } finally {
@@ -182,7 +181,7 @@ export default function Chat() {
                 >
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                   <p className={`text-xs mt-1 opacity-70`}>
-                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
               </div>

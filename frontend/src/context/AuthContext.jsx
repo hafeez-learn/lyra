@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { supabase, onAuthStateChange } from '../lib/supabase'
+import { onAuthStateChange } from '../lib/firebase'
 
 const AuthContext = createContext({})
 
@@ -10,10 +10,11 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null)
+    const unsubscribe = onAuthStateChange((firebaseUser) => {
+      setUser(firebaseUser)
       setLoading(false)
     })
+    return () => unsubscribe()
   }, [])
 
   const value = {

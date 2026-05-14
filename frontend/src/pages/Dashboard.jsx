@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
-import { signOut } from '../lib/supabase'
+import { signOut, getMoodEntries } from '../lib/firebase'
 import { formatDistanceToNow } from '../utils/dateUtils'
 
 const MOOD_LABELS = ['', '😔 Bad', '😟 Poor', '😐 Okay', '🙂 Good', '😊 Great']
@@ -21,32 +20,24 @@ export default function Dashboard() {
 
     const fetchData = async () => {
       try {
-        // Fetch mood entries
-        const { data: moods } = await supabase
-          .from('mood_entries')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(7)
-
+        const moods = await getMoodEntries(user.uid, 7)
         if (moods) {
           setRecentMoods(moods)
           
           // Calculate streak
-          const today = new Date().toDateString()
           let currentStreak = 0
           let checkDate = new Date()
           
-          const sortedMoods = [...moods].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          const sortedMoods = [...moods].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
           
           for (const mood of sortedMoods) {
-            const moodDate = new Date(mood.created_at).toDateString()
+            const moodDate = new Date(mood.createdAt).toDateString()
             const expectedDate = checkDate.toDateString()
             
             if (moodDate === expectedDate || 
                 moodDate === new Date(checkDate.getTime() - 86400000).toDateString()) {
               currentStreak++
-              checkDate = new Date(mood.created_at)
+              checkDate = new Date(mood.createdAt)
             } else {
               break
             }
@@ -55,7 +46,7 @@ export default function Dashboard() {
           setStreak(currentStreak)
           
           if (moods.length > 0) {
-            setLastCheckIn(moods[0].created_at)
+            setLastCheckIn(moods[0].createdAt)
           }
         }
       } catch (err) {
@@ -162,16 +153,16 @@ export default function Dashboard() {
               {recentMoods.map((mood) => (
                 <div key={mood.id} className="flex items-center justify-between p-3 bg-bg rounded-xl">
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl" style={{ filter: `drop-shadow(0 0 8px ${MOOD_COLORS[mood.mood_score]})` }}>
-                      {['😔', '😟', '😐', '🙂', '😊'][mood.mood_score - 1]}
+                    <span className="text-2xl" style={{ filter: `drop-shadow(0 0 8px ${MOOD_COLORS[mood.moodScore]})` }}>
+                      {['😔', '😟', '😐', '🙂', '😊'][mood.moodScore - 1]}
                     </span>
                     <div>
-                      <p className="font-semibold">{MOOD_LABELS[mood.mood_score]}</p>
+                      <p className="font-semibold">{MOOD_LABELS[mood.moodScore]}</p>
                       {mood.note && <p className="text-text-secondary text-sm truncate max-w-[200px]">{mood.note}</p>}
                     </div>
                   </div>
                   <p className="text-text-secondary text-sm">
-                    {formatDistanceToNow(mood.created_at)}
+                    {formatDistanceToNow(mood.createdAt)}
                   </p>
                 </div>
               ))}
