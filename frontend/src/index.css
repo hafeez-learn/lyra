@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #0d0d1a;
+  color: #ffffff;
+  min-height: 100vh;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@layer utilities {
+  .touch-target {
+    min-height: 48px;
+    min-width: 48px;
+  }
+  
+  .gradient-border {
+    background: linear-gradient(135deg, #ff566e, #8e0dff);
+    padding: 2px;
+    border-radius: inherit;
+  }
+}
