@@ -1,0 +1,31 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: cd frontend && npm ci && npm test -- --run
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: cd frontend && npm ci && npm run build
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - run: sleep 15
+      - run: |
+          curl -s -o /dev/null -w "%{http_code}" https://hafeez-learn.github.io/lyra/
+          curl -s -o /dev/null -w "%{http_code}" https://hafeez-learn.github.io/lyra/assets/app.js
+          curl -s -o /dev/null -w "%{http_code}" https://hafeez-learn.github.io/lyra/assets/index-CSWFUOSc.css
