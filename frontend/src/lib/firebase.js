@@ -1,3 +1,8 @@
+import { initializeApp } from 'firebase/app'
+import { getAuth } from 'firebase/auth'
+import { onAuthStateChanged } from 'firebase/auth'
+import { getFirestore, collection, addDoc, query, where, orderBy, limit, getDocs } from 'firebase/firestore'
+
 // Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCcldB8xWIk855fUS7kbLpO-6x_B12pQ8g",
@@ -9,25 +14,16 @@ const firebaseConfig = {
 }
 
 // Initialize Firebase
-const app = firebase.initializeApp(firebaseConfig)
-const auth = firebase.auth()
-const db = firebase.firestore()
+const app = initializeApp(firebaseConfig)
+const auth = getAuth(app)
+const db = getFirestore(app)
 
-// MiniMax API key (server-side proxy would be better, but for demo we use direct call)
-const MINIMAX_API_KEY = '' // Will use Hermes agent's API key
-
-export const getCurrentUser = async () => {
-  return auth.currentUser
-}
+export const getCurrentUser = async () => auth.currentUser
 
 export const signUp = async (email, password) => {
   try {
-    const result = await auth.createUserWithEmailAndPassword(email, password)
-    // Create user profile in Firestore
-    await db.collection('profiles').doc(result.user.uid).set({
-      email: email,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    })
+    const { createUserWithEmailAndPassword } = await import('firebase/auth')
+    const result = await createUserWithEmailAndPassword(auth, email, password)
     return { user: result.user, error: null }
   } catch (err) {
     return { user: null, error: err }
@@ -36,7 +32,8 @@ export const signUp = async (email, password) => {
 
 export const signIn = async (email, password) => {
   try {
-    const result = await auth.signInWithEmailAndPassword(email, password)
+    const { signInWithEmailAndPassword } = await import('firebase/auth')
+    const result = await signInWithEmailAndPassword(auth, email, password)
     return { user: result.user, error: null }
   } catch (err) {
     return { user: null, error: err }
@@ -45,7 +42,8 @@ export const signIn = async (email, password) => {
 
 export const signOut = async () => {
   try {
-    await auth.signOut()
+    const { signOut: firebaseSignOut } = await import('firebase/auth')
+    await firebaseSignOut(auth)
     return { error: null }
   } catch (err) {
     return { error: err }
@@ -53,49 +51,55 @@ export const signOut = async () => {
 }
 
 export const onAuthStateChange = (callback) => {
-  return auth.onAuthStateChanged(callback)
+  return onAuthStateChanged(auth, callback)
 }
 
 // Firestore helpers
 export const saveMoodEntry = async (userId, moodScore, note) => {
-  await db.collection('mood_entries').add({
+  await addDoc(collection(db, 'mood_entries'), {
     userId,
     moodScore,
     note: note || null,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    createdAt: new Date().toISOString()
   })
 }
 
-export const getMoodEntries = async (userId, limit = 10) => {
-  const snapshot = await db.collection('mood_entries')
-    .where('userId', '==', userId)
-    .orderBy('createdAt', 'desc')
-    .limit(limit)
-    .get()
+export const getMoodEntries = async (userId, limitCount = 10) => {
+  const q = query(
+    collection(db, 'mood_entries'),
+    where('userId', '==', userId),
+    orderBy('createdAt', 'desc'),
+    limit(limitCount)
+  )
+  const snapshot = await getDocs(q)
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
 }
 
 export const saveChatMessage = async (userId, role, content) => {
-  await db.collection('chat_messages').add({
+  await addDoc(collection(db, 'chat_messages'), {
     userId,
     role,
     content,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    createdAt: new Date().toISOString()
   })
 }
 
-export const getChatMessages = async (userId, limit = 20) => {
-  const snapshot = await db.collection('chat_messages')
-    .where('userId', '==', userId)
-    .orderBy('createdAt', 'asc')
-    .limit(limit)
-    .get()
+export const getChatMessages = async (userId, limitCount = 20) => {
+  const q = query(
+    collection(db, 'chat_messages'),
+    where('userId', '==', userId),
+    orderBy('createdAt', 'asc'),
+    limit(limitCount)
+  )
+  const snapshot = await getDocs(q)
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
 }
 
 export const saveCheckIn = async (userId) => {
-  await db.collection('check_ins').add({
+  await addDoc(collection(db, 'check_ins'), {
     userId,
-    completedAt: firebase.firestore.FieldValue.serverTimestamp()
+    completedAt: new Date().toISOString()
   })
 }
+
+export { db }
