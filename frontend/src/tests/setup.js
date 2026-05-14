@@ -1,18 +1,18 @@
 // Test setup file
-import { expect } from 'vitest'
+import { expect, vi } from 'vitest'
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: jest.fn().mockImplementation(query => ({
+  value: vi.fn().mockImplementation(query => ({
     matches: false,
     media: query,
     onchange: null,
-    addListener: jest.fn(),
-    removeListener: jest.fn(),
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
   })),
 })
 
@@ -29,21 +29,26 @@ global.IntersectionObserver = class IntersectionObserver {
   inlineFlags() { return {} }
 }
 
-// Supabase mock
-export const mockSupabaseClient = {
+// Mock Firebase
+export const mockFirebaseClient = {
   auth: {
-    getUser: async () => ({ data: { user: null } }),
-    signUp: async () => ({ data: null, error: null }),
-    signInWithPassword: async () => ({ data: null, error: null }),
+    currentUser: null,
+    signInWithEmailAndPassword: async () => ({ user: null, error: null }),
+    createUserWithEmailAndPassword: async () => ({ user: null, error: null }),
     signOut: async () => ({ error: null }),
-    onAuthStateChange: () => ({ data: { unsubscribe: () => {} } }),
+    onAuthStateChanged: (callback) => {
+      callback(null)
+      return { unsubscribe: () => {} }
+    },
   },
-  from: () => ({
-    select: () => ({
-      eq: () => ({
-        order: () => Promise.resolve({ data: [], error: null }),
+  firestore: () => ({
+    collection: () => ({
+      add: async () => ({ id: 'mock-id' }),
+      where: () => ({
+        orderBy: () => ({
+          limit: () => Promise.resolve({ docs: [] }),
+        }),
       }),
     }),
-    insert: () => Promise.resolve({ error: null }),
   }),
 }
