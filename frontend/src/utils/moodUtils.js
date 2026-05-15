@@ -27,14 +27,16 @@ export const calculateStreak = (moodEntries) => {
 
 export const getMoodStats = (moodEntries) => {
   if (!moodEntries || moodEntries.length === 0) {
-    return { average: 0, count: 0, distribution: [0, 0, 0, 0, 0] }
+    return { average: '0', count: 0, distribution: [0, 0, 0, 0, 0] }
   }
 
   const distribution = [0, 0, 0, 0, 0]
   let sum = 0
 
   for (const entry of moodEntries) {
-    const score = Math.min(5, Math.max(1, entry.mood_score || 3))
+    const raw = entry.mood_score
+    if (raw == null) continue
+    const score = Math.min(5, Math.max(1, raw))
     distribution[score - 1]++
     sum += score
   }
