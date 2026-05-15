@@ -5,7 +5,7 @@ describe('moodUtils', () => {
   describe('getMoodStats', () => {
     it('returns zeros for empty array', () => {
       const stats = getMoodStats([])
-      expect(stats.average).toBe(0)
+      expect(stats.average).toBe('0')
       expect(stats.count).toBe(0)
       expect(stats.distribution).toEqual([0, 0, 0, 0, 0])
     })
